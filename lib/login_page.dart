@@ -1,5 +1,8 @@
+// lib/login_page.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'mobile_dashboard_page.dart';
 
 enum AuthMode { login, register }
 
@@ -403,27 +406,4 @@ InputDecoration _wellSyncInputDecoration({required String hintText}) {
       ),
     ),
   );
-}
-
-class MobileDashboardPage extends StatelessWidget {
-  const MobileDashboardPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('WellSync Mobile Dashboard')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () async {
-            await Supabase.instance.client.auth.signOut();
-            if (!context.mounted) return;
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const MobileLoginPage()),
-            );
-          },
-          child: const Text('Log out'),
-        ),
-      ),
-    );
-  }
 }

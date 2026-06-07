@@ -39,7 +39,11 @@ dependencies:
   supabase_flutter: ^2.0.0
 
   #Bluetooth
-  flutter_blue_plus: ^1.32.12
+  flutter_blue_plus: ^1.36.8
+  
+  # Permissions
+  permission_handler: ^11.3.0
+
 
 dev_dependencies:
   flutter_test:
