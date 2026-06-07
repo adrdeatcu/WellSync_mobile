@@ -28,9 +28,14 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
   PerMinuteAggregator? _aggregator;
   StreamSubscription<PerMinuteMeasurement>? _perMinuteSub;
 
+  int _stepGoalPerDay = 10000;
+  bool _loadingProfile = true;
+
   @override
   void initState() {
     super.initState();
+
+    _loadStepGoalPerDay();
 
     // 1) Subscribe to raw samples for UI display
     _sampleSub = _bleService.samplesStream.listen((sample) {
@@ -55,6 +60,44 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
         }
       }
     });
+  }
+
+  Future<void> _loadStepGoalPerDay() async {
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) {
+        setState(() {
+          _stepGoalPerDay = 10000;
+          _loadingProfile = false;
+        });
+        return;
+      }
+
+      final res = await client
+          .from('profiles')
+          .select('step_goal_per_day')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final val = res?['step_goal_per_day'] as int?;
+      setState(() {
+        _stepGoalPerDay = val ?? 10000;
+        _loadingProfile = false;
+      });
+
+      if (kDebugMode) {
+        print('Loaded step_goal_per_day: $_stepGoalPerDay');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading step_goal_per_day: $e');
+      }
+      setState(() {
+        _stepGoalPerDay = 10000;
+        _loadingProfile = false;
+      });
+    }
   }
 
   @override
@@ -155,9 +198,9 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-                          // Optional: enforce active session before connecting
-                          final session = Supabase
-                              .instance.client.auth.currentSession;
+                          // Enforce active session before connecting
+                          final session =
+                              Supabase.instance.client.auth.currentSession;
                           if (session == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -170,7 +213,15 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                           }
 
                           if (!connected) {
-                            _bleService.connectAndListen();
+                            // Wait for BLE connection
+                            await _bleService.connectAndListen();
+
+                            // After connection, send time + step target once
+                            if (_bleService.isConnected.value) {
+                              await _bleService.sendConfigToWatch(
+                                stepTarget: _stepGoalPerDay,
+                              );
+                            }
                           } else {
                             _bleService.disconnect();
                           }
@@ -181,6 +232,14 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (_loadingProfile)
+                      const Text(
+                        'Loading profile...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
                     ValueListenableBuilder<String?>(
                       valueListenable: _bleService.statusMessage,
                       builder: (context, msg, _) {

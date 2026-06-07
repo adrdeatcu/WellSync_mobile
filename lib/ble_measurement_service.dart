@@ -15,6 +15,10 @@ class BleMeasurementService {
   static final Guid measurementCharUuid =
       Guid('0000abce-0000-1000-8000-00805f9b34fb');
 
+  // New: config characteristic (phone -> watch)
+  static final Guid configCharUuid =
+      Guid('0000abcf-0000-1000-8000-00805f9b34fb');
+
   // You can use a name filter OR service UUID filter when scanning
   static const String targetDeviceName = 'WellSync Core2';
 
@@ -24,6 +28,7 @@ class BleMeasurementService {
 
   BluetoothDevice? _device;
   BluetoothCharacteristic? _measurementChar;
+  BluetoothCharacteristic? _configChar;
   StreamSubscription<List<int>>? _notifySub;
 
   final StreamController<MeasurementSample> _samplesController =
@@ -41,11 +46,11 @@ class BleMeasurementService {
 
     final scanGranted =
         statuses[Permission.bluetoothScan] == PermissionStatus.granted ||
-        statuses[Permission.location] == PermissionStatus.granted;
+            statuses[Permission.location] == PermissionStatus.granted;
 
     final connectGranted =
         statuses[Permission.bluetoothConnect] == PermissionStatus.granted ||
-        statuses[Permission.bluetooth] == PermissionStatus.granted;
+            statuses[Permission.bluetooth] == PermissionStatus.granted;
 
     return scanGranted && connectGranted;
   }
@@ -117,13 +122,15 @@ class BleMeasurementService {
       // Discover services
       final services = await foundDevice.discoverServices();
       BluetoothCharacteristic? measurementChar;
+      BluetoothCharacteristic? configChar;
 
       for (final service in services) {
         if (service.uuid == serviceUuid) {
           for (final c in service.characteristics) {
             if (c.uuid == measurementCharUuid) {
               measurementChar = c;
-              break;
+            } else if (c.uuid == configCharUuid) {
+              configChar = c;
             }
           }
         }
@@ -136,6 +143,7 @@ class BleMeasurementService {
       }
 
       _measurementChar = measurementChar;
+      _configChar = configChar;
 
       // Enable notifications
       await measurementChar.setNotifyValue(true);
@@ -164,6 +172,39 @@ class BleMeasurementService {
     }
   }
 
+  // New: send time + step goal config to the watch
+  Future<void> sendConfigToWatch({required int stepTarget}) async {
+    if (_configChar == null) {
+      if (kDebugMode) {
+        print('Config characteristic not available; cannot send config');
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    final payload = {
+      'year': now.year,
+      'month': now.month,
+      'day': now.day,
+      'hour': now.hour,
+      'minute': now.minute,
+      'second': now.second,
+      'step_target': stepTarget,
+    };
+
+    final bytes = utf8.encode(jsonEncode(payload));
+    try {
+      await _configChar!.write(bytes, withoutResponse: true);
+      if (kDebugMode) {
+        print('Sent config to watch: $payload');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending config to watch: $e');
+      }
+    }
+  }
+
   Future<void> _safeDisconnect() async {
     try {
       _notifySub?.cancel();
@@ -183,6 +224,7 @@ class BleMeasurementService {
     } finally {
       _device = null;
       _measurementChar = null;
+      _configChar = null;
       isConnected.value = false;
     }
   }
