@@ -38,6 +38,9 @@ dependencies:
   #Supabase
   supabase_flutter: ^2.0.0
 
+  #Bluetooth
+  flutter_blue_plus: ^1.32.12
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
