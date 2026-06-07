@@ -44,6 +44,8 @@ dependencies:
   # Permissions
   permission_handler: ^11.3.0
 
+  #HTTP
+  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:

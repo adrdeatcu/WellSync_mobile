@@ -1,12 +1,15 @@
 // lib/mobile_dashboard_page.dart
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'ble_measurement_service.dart';
 import 'models/measurement_models.dart';
 import 'login_page.dart';
+import 'per_minute_aggregator.dart';
+import 'measurement_sync_service.dart';
 
 class MobileDashboardPage extends StatefulWidget {
   const MobileDashboardPage({super.key});
@@ -17,22 +20,48 @@ class MobileDashboardPage extends StatefulWidget {
 
 class _MobileDashboardPageState extends State<MobileDashboardPage> {
   final _bleService = BleMeasurementService();
+  final _syncService = MeasurementSyncService();
+
   MeasurementSample? _latestSample;
   StreamSubscription<MeasurementSample>? _sampleSub;
+
+  PerMinuteAggregator? _aggregator;
+  StreamSubscription<PerMinuteMeasurement>? _perMinuteSub;
 
   @override
   void initState() {
     super.initState();
+
+    // 1) Subscribe to raw samples for UI display
     _sampleSub = _bleService.samplesStream.listen((sample) {
       setState(() {
         _latestSample = sample;
       });
+    });
+
+    // 2) Set up per-minute aggregation and sync
+    _aggregator = PerMinuteAggregator(_bleService.samplesStream);
+    _aggregator!.start();
+
+    _perMinuteSub = _aggregator!.perMinuteStream.listen((perMinute) async {
+      try {
+        if (kDebugMode) {
+          print('Syncing per-minute measurement: ${perMinute.toJson()}');
+        }
+        await _syncService.sendPerMinuteMeasurement(perMinute);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Sync error: $e');
+        }
+      }
     });
   }
 
   @override
   void dispose() {
     _sampleSub?.cancel();
+    _perMinuteSub?.cancel();
+    _aggregator?.dispose();
     _bleService.dispose();
     super.dispose();
   }
@@ -125,7 +154,21 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          // Optional: enforce active session before connecting
+                          final session = Supabase
+                              .instance.client.auth.currentSession;
+                          if (session == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please log in again before connecting.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
                           if (!connected) {
                             _bleService.connectAndListen();
                           } else {
