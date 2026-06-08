@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'mobile_dashboard_page.dart';
+import 'mobile_home_shell.dart';
+// You can remove this import if nothing else in this file uses MobileDashboardPage
+// import 'mobile_dashboard_page.dart';
 
 enum AuthMode { login, register }
 
@@ -55,7 +57,7 @@ class _MobileLoginPageState extends State<MobileLoginPage> {
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MobileDashboardPage()),
+          MaterialPageRoute(builder: (_) => const MobileHomeShell()),
         );
       }
     } catch (e) {
