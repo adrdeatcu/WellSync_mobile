@@ -9,15 +9,19 @@ import 'package:permission_handler/permission_handler.dart';
 import 'models/measurement_models.dart';
 
 class BleMeasurementService {
-  // Adjust these once your firmware has fixed UUIDs
+  // Service & measurement UUIDs
   static final Guid serviceUuid =
       Guid('0000abcd-0000-1000-8000-00805f9b34fb');
   static final Guid measurementCharUuid =
       Guid('0000abce-0000-1000-8000-00805f9b34fb');
 
-  // New: config characteristic (phone -> watch)
+  // Config characteristic (phone -> watch)
   static final Guid configCharUuid =
       Guid('0000abcf-0000-1000-8000-00805f9b34fb');
+
+  // New: alert characteristic (watch -> phone, fall/SOS)
+  static final Guid alertCharUuid =
+      Guid('0000abd0-0000-1000-8000-00805f9b34fb');
 
   // You can use a name filter OR service UUID filter when scanning
   static const String targetDeviceName = 'WellSync Core2';
@@ -29,7 +33,10 @@ class BleMeasurementService {
   BluetoothDevice? _device;
   BluetoothCharacteristic? _measurementChar;
   BluetoothCharacteristic? _configChar;
+  BluetoothCharacteristic? _alertChar;
+
   StreamSubscription<List<int>>? _notifySub;
+  StreamSubscription<List<int>>? _alertSub;
 
   final StreamController<MeasurementSample> _samplesController =
       StreamController<MeasurementSample>.broadcast();
@@ -80,16 +87,14 @@ class BleMeasurementService {
       // Start scan (static API)
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 8),
-        // optionally: withServices: [serviceUuid],
       );
 
       BluetoothDevice? foundDevice;
 
       await for (final results in FlutterBluePlus.scanResults) {
-        // results is List<ScanResult>
         for (final r in results) {
           final device = r.device;
-          final name = device.platformName; // platformName is the new field
+          final name = device.platformName;
 
           if (name == targetDeviceName ||
               r.advertisementData.serviceUuids.contains(serviceUuid)) {
@@ -123,6 +128,7 @@ class BleMeasurementService {
       final services = await foundDevice.discoverServices();
       BluetoothCharacteristic? measurementChar;
       BluetoothCharacteristic? configChar;
+      BluetoothCharacteristic? alertChar;
 
       for (final service in services) {
         if (service.uuid == serviceUuid) {
@@ -131,6 +137,8 @@ class BleMeasurementService {
               measurementChar = c;
             } else if (c.uuid == configCharUuid) {
               configChar = c;
+            } else if (c.uuid == alertCharUuid) {
+              alertChar = c;
             }
           }
         }
@@ -144,8 +152,9 @@ class BleMeasurementService {
 
       _measurementChar = measurementChar;
       _configChar = configChar;
+      _alertChar = alertChar;
 
-      // Enable notifications
+      // Enable notifications for measurements
       await measurementChar.setNotifyValue(true);
 
       _notifySub?.cancel();
@@ -163,6 +172,41 @@ class BleMeasurementService {
         }
       });
 
+      // New: enable notifications for alerts, if present
+      if (_alertChar != null) {
+        try {
+          await _alertChar!.setNotifyValue(true);
+          _alertSub?.cancel();
+          _alertSub = _alertChar!.onValueReceived.listen((data) {
+            try {
+              final jsonStr = utf8.decode(data);
+              final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+              final type = decoded['type'] as String?;
+
+              if (kDebugMode) {
+                print('Received alert JSON from watch: $decoded');
+              }
+
+              if (type == 'fall_alert') {
+                if (kDebugMode) {
+                  print('*** FALL ALERT RECEIVED FROM WATCH ***');
+                }
+                // Later: trigger UI, location, notifications, etc.
+              }
+            } catch (e, st) {
+              if (kDebugMode) {
+                print('Error parsing alert BLE data: $e');
+                print(st);
+              }
+            }
+          });
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error enabling alert notifications: $e');
+          }
+        }
+      }
+
       statusMessage.value = 'Connected and receiving data.';
     } catch (e) {
       statusMessage.value = 'BLE error: $e';
@@ -172,7 +216,7 @@ class BleMeasurementService {
     }
   }
 
-  // New: send time + step goal config to the watch
+  // Send time + step goal config to the watch
   Future<void> sendConfigToWatch({required int stepTarget}) async {
     if (_configChar == null) {
       if (kDebugMode) {
@@ -210,9 +254,17 @@ class BleMeasurementService {
       _notifySub?.cancel();
       _notifySub = null;
 
+      _alertSub?.cancel();
+      _alertSub = null;
+
       if (_measurementChar != null) {
         try {
           await _measurementChar!.setNotifyValue(false);
+        } catch (_) {}
+      }
+      if (_alertChar != null) {
+        try {
+          await _alertChar!.setNotifyValue(false);
         } catch (_) {}
       }
 
@@ -225,6 +277,7 @@ class BleMeasurementService {
       _device = null;
       _measurementChar = null;
       _configChar = null;
+      _alertChar = null;
       isConnected.value = false;
     }
   }
