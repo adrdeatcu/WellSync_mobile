@@ -47,6 +47,9 @@ dependencies:
   #HTTP
   http: ^1.2.2
 
+  #Charts
+  fl_chart: ^0.68.0   # or latest
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
