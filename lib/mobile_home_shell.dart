@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'mobile_dashboard_page.dart';
 import 'mobile_profile_page.dart';
 import 'mobile_history_page.dart';
+import 'mobile_coach_page.dart';
 
 class MobileHomeShell extends StatefulWidget {
   const MobileHomeShell({super.key});
@@ -21,7 +22,7 @@ class _MobileHomeShellState extends State<MobileHomeShell> {
   final _pages = const [
     MobileDashboardPage(),       // 0 - Dashboard / Home
     MobileHistoryPage(),         // 1 - History
-    _AiCoachPlaceholderPage(),   // 2 - AI Coach
+    MobileCoachPage(),   // 2 - AI Coach
     _CommunityPlaceholderPage(), // 3 - Community
     MobileProfilePage(),         // 4 - Profile
   ];
@@ -72,16 +73,6 @@ class _MobileHomeShellState extends State<MobileHomeShell> {
 
 // Placeholder pages – later replaced with real implementations
 
-class _AiCoachPlaceholderPage extends StatelessWidget {
-  const _AiCoachPlaceholderPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('AI Coach page (mobile) – to be implemented'),
-    );
-  }
-}
 
 class _CommunityPlaceholderPage extends StatelessWidget {
   const _CommunityPlaceholderPage();
