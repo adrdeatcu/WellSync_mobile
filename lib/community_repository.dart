@@ -10,6 +10,8 @@ class CommunityRepository {
   Future<String> _requireUserId() async {
     final session = supabase.auth.currentSession;
     final user = session?.user;
+    // DEBUG: log current session/user
+    print('DEBUG _requireUserId: session = $session, user = $user');
     if (user == null) {
       throw Exception('Not logged in');
     }
@@ -48,10 +50,11 @@ class CommunityRepository {
     return null;
   }
 
-  // -------- Public activities (similar to listPublicActivities) --------
+  // -------- Public activities --------
 
   Future<List<CommunityActivity>> listPublicActivities() async {
     final userId = await _requireUserId();
+    print('DEBUG listPublicActivities: userId = $userId');
 
     final nowIso = DateTime.now().toUtc().toIso8601String();
 
@@ -67,6 +70,7 @@ class CommunityRepository {
         .order('start_time_utc');
 
     final activities = (data as List).cast<Map<String, dynamic>>();
+    print('DEBUG listPublicActivities: fetched ${activities.length} rows');
     if (activities.isEmpty) return [];
 
     // load participant counts
@@ -135,10 +139,11 @@ class CommunityRepository {
     }).toList();
   }
 
-  // -------- My activities (similar to listMyActivities) --------
+  // -------- My activities --------
 
   Future<List<CommunityActivity>> listMyActivities() async {
     final userId = await _requireUserId();
+    print('DEBUG listMyActivities: userId = $userId');
 
     final data = await supabase
         .from('community_activity_members')
@@ -153,6 +158,7 @@ class CommunityRepository {
         .order('joined_at', ascending: false);
 
     final rows = (data as List).cast<Map<String, dynamic>>();
+    print('DEBUG listMyActivities: fetched ${rows.length} rows');
     final activities = <CommunityActivity>[];
     final ids = <String>[];
 
@@ -236,59 +242,69 @@ class CommunityRepository {
     required bool isPublic,
   }) async {
     final userId = await _requireUserId();
+    print('DEBUG createActivity: userId = $userId');
 
     final startUtc = startTimeLocal.toUtc().toIso8601String();
     final endUtc = endTimeLocal.toUtc().toIso8601String();
 
-    final inserted = await supabase
-        .from('community_activities')
-        .insert({
-          'creator_user_id': userId,
-          'title': title,
-          'description': description,
-          'city': city,
-          'location_details': locationDetails,
-          'start_time_utc': startUtc,
-          'end_time_utc': endUtc,
-          'is_public': isPublic,
-        })
-        .select(
-          'id, creator_user_id, title, description, city, '
-          'location_details, start_time_utc, end_time_utc, '
-          'is_public, created_at',
-        )
-        .single();
+    try {
+      print('DEBUG createActivity: inserting into community_activities');
+      final inserted = await supabase
+          .from('community_activities')
+          .insert({
+            'creator_user_id': userId,
+            'title': title,
+            'description': description,
+            'city': city,
+            'location_details': locationDetails,
+            'start_time_utc': startUtc,
+            'end_time_utc': endUtc,
+            'is_public': isPublic,
+          })
+          .select(
+            'id, creator_user_id, title, description, city, '
+            'location_details, start_time_utc, end_time_utc, '
+            'is_public, created_at',
+          )
+          .single();
 
-    // inserted is already a Map<String, dynamic>
-    final row = inserted;
+      final row = inserted;
+      print('DEBUG createActivity: inserted activity row = $row');
 
-    // insert membership row as creator
-    await supabase.from('community_activity_members').insert({
-      'activity_id': row['id'],
-      'user_id': userId,
-      'role': 'creator',
-    });
+      print('DEBUG createActivity: inserting membership row');
+      await supabase.from('community_activity_members').insert({
+        'activity_id': row['id'],
+        'user_id': userId,
+        'role': 'creator',
+      });
+      print('DEBUG createActivity: membership inserted OK');
 
-    return CommunityActivity(
-      id: row['id'] as String,
-      creatorUserId: row['creator_user_id'] as String,
-      creatorName: 'You',
-      isFriendHost: false,
-      title: row['title'] as String,
-      description: row['description'] as String?,
-      city: row['city'] as String,
-      locationDetails: row['location_details'] as String?,
-      startTimeUtc: DateTime.parse(row['start_time_utc'] as String),
-      endTimeUtc: DateTime.parse(row['end_time_utc'] as String),
-      isPublic: row['is_public'] as bool,
-      createdAt: DateTime.parse(row['created_at'] as String),
-      participantsCount: 1,
-      isCreator: true,
-    );
+      return CommunityActivity(
+        id: row['id'] as String,
+        creatorUserId: row['creator_user_id'] as String,
+        creatorName: 'You',
+        isFriendHost: false,
+        title: row['title'] as String,
+        description: row['description'] as String?,
+        city: row['city'] as String,
+        locationDetails: row['location_details'] as String?,
+        startTimeUtc: DateTime.parse(row['start_time_utc'] as String),
+        endTimeUtc: DateTime.parse(row['end_time_utc'] as String),
+        isPublic: row['is_public'] as bool,
+        createdAt: DateTime.parse(row['created_at'] as String),
+        participantsCount: 1,
+        isCreator: true,
+      );
+    } catch (e, st) {
+      print('ERROR createActivity: $e');
+      print(st);
+      rethrow;
+    }
   }
 
   Future<void> joinActivity(String activityId) async {
     final userId = await _requireUserId();
+    print('DEBUG joinActivity: userId = $userId, activityId = $activityId');
 
     final activity = await supabase
         .from('community_activities')
@@ -312,6 +328,7 @@ class CommunityRepository {
 
   Future<void> leaveActivity(String activityId) async {
     final userId = await _requireUserId();
+    print('DEBUG leaveActivity: userId = $userId, activityId = $activityId');
     await supabase
         .from('community_activity_members')
         .delete()
@@ -321,6 +338,7 @@ class CommunityRepository {
 
   Future<void> deleteActivityIfCreator(String activityId) async {
     final userId = await _requireUserId();
+    print('DEBUG deleteActivityIfCreator: userId = $userId, activityId = $activityId');
 
     final activity = await supabase
         .from('community_activities')

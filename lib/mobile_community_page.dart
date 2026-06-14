@@ -269,7 +269,7 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
     );
   }
 
-  Future<void> _handleCreateActivity({
+    Future<void> _handleCreateActivity({
     required String title,
     required String description,
     required String city,
@@ -301,9 +301,10 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
       });
     } catch (e) {
       if (!mounted) return;
+      // show the actual error text for debugging
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to create activity.'),
+        SnackBar(
+          content: Text('Failed to create activity: $e'),
         ),
       );
     }
