@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'community_repository.dart';
 import 'models/community_models.dart';
 import 'widgets/create_activity_sheet.dart';
+import 'friends_repository.dart';
+import 'widgets/friends_panel.dart';
 
 class MobileCommunityPage extends StatefulWidget {
   const MobileCommunityPage({super.key});
@@ -15,6 +17,7 @@ class MobileCommunityPage extends StatefulWidget {
 
 class _MobileCommunityPageState extends State<MobileCommunityPage> {
   late final CommunityRepository _repo;
+  late final FriendsRepository _friendsRepo;
 
   bool _loadingMy = false;
   bool _loadingPublic = false;
@@ -34,7 +37,9 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
   @override
   void initState() {
     super.initState();
-    _repo = CommunityRepository(supabase: Supabase.instance.client);
+    final client = Supabase.instance.client;
+    _repo = CommunityRepository(supabase: client);
+    _friendsRepo = FriendsRepository(supabase: client);
     _loadAll();
   }
 
@@ -269,7 +274,7 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
     );
   }
 
-    Future<void> _handleCreateActivity({
+  Future<void> _handleCreateActivity({
     required String title,
     required String description,
     required String city,
@@ -310,6 +315,20 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
     }
   }
 
+  void _openFriendsPanel() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: FriendsPanelSheet(friendsRepo: _friendsRepo),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const brandBg = Color(0xFFEAF5F3);
@@ -325,6 +344,13 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
         backgroundColor: Colors.white,
         foregroundColor: brandText,
         elevation: 0.5,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.group_outlined),
+            tooltip: 'Friends',
+            onPressed: _openFriendsPanel,
+          ),
+        ],
       ),
       body: Stack(
         children: [
