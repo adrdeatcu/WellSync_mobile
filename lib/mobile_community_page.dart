@@ -7,6 +7,7 @@ import 'models/community_models.dart';
 import 'widgets/create_activity_sheet.dart';
 import 'friends_repository.dart';
 import 'widgets/friends_panel.dart';
+import 'activity_chat_page.dart';
 
 class MobileCommunityPage extends StatefulWidget {
   const MobileCommunityPage({super.key});
@@ -306,7 +307,6 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      // show the actual error text for debugging
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to create activity: $e'),
@@ -325,6 +325,17 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
       builder: (context) => FractionallySizedBox(
         heightFactor: 0.85,
         child: FriendsPanelSheet(friendsRepo: _friendsRepo),
+      ),
+    );
+  }
+
+  void _openActivityChat(CommunityActivity activity) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ActivityChatPage(
+          activity: activity,
+          repo: _repo,
+        ),
       ),
     );
   }
@@ -354,7 +365,6 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
       ),
       body: Stack(
         children: [
-          // decorative blobs
           Positioned(
             top: -160,
             left: -160,
@@ -389,13 +399,11 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
               ),
             ),
           ),
-          // content
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Intro card
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -427,7 +435,6 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Your activities
                   _SectionCard(
                     title: 'Your activities',
                     loading: _loadingMy,
@@ -451,6 +458,7 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                                     onDelete: a.isCreator
                                         ? () => _handleDelete(a)
                                         : null,
+                                    onOpenChat: () => _openActivityChat(a),
                                   ),
                                 )
                                 .toList(),
@@ -458,7 +466,6 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Public activities with filters
                   _SectionCard(
                     title: 'Public activities',
                     loading: _loadingPublic,
@@ -466,7 +473,6 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // filters
                         Row(
                           children: [
                             Expanded(
@@ -526,6 +532,7 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                                     onJoin: () => _handleJoin(a),
                                     onLeave: null,
                                     onDelete: null,
+                                    onOpenChat: null,
                                   ),
                                 )
                                 .toList(),
@@ -619,6 +626,7 @@ class _ActivityTile extends StatelessWidget {
   final VoidCallback? onJoin;
   final VoidCallback? onLeave;
   final VoidCallback? onDelete;
+  final VoidCallback? onOpenChat;
 
   const _ActivityTile({
     required this.activity,
@@ -626,6 +634,7 @@ class _ActivityTile extends StatelessWidget {
     this.onJoin,
     this.onLeave,
     this.onDelete,
+    this.onOpenChat,
   });
 
   @override
@@ -645,7 +654,6 @@ class _ActivityTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // title + chip row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -705,6 +713,11 @@ class _ActivityTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              if (isMineSection && onOpenChat != null)
+                TextButton(
+                  onPressed: onOpenChat,
+                  child: const Text('Open chat'),
+                ),
               if (isMineSection && onLeave != null)
                 TextButton(
                   onPressed: onLeave,

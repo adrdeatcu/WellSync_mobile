@@ -39,3 +39,39 @@ class CommunityActivity {
     return 'Starts • ${startTimeUtc.toLocal().toString()}';
   }
 }
+
+/// Chat message for an activity
+class ActivityMessage {
+  final int id;
+  final String activityId;
+  final String senderUserId;
+  final String senderName; // full_name + (@username) or fallback
+  final String content;
+  final DateTime createdAt;
+
+  ActivityMessage({
+    required this.id,
+    required this.activityId,
+    required this.senderUserId,
+    required this.senderName,
+    required this.content,
+    required this.createdAt,
+  });
+}
+
+/// Utility to build display name like on web:
+/// full name + (@username), or just one of them.
+String buildDisplayNameMobile({
+  String? fullName,
+  String? username,
+}) {
+  final full = (fullName ?? '').trim();
+  final user = (username ?? '').trim();
+
+  if (full.isNotEmpty && user.isNotEmpty) {
+    return '$full (@$user)';
+  }
+  if (full.isNotEmpty) return full;
+  if (user.isNotEmpty) return '@$user';
+  return 'Participant';
+}

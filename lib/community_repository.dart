@@ -285,8 +285,6 @@ class CommunityRepository {
         isCreator: true,
       );
     } catch (e) {
-      // You can plug a real logger here if you want
-      // e.g. log('$e');
       rethrow;
     }
   }
@@ -344,5 +342,105 @@ class CommunityRepository {
         .from('community_activities')
         .delete()
         .eq('id', activityId);
+  }
+
+  // -------- Activity chat --------
+
+  Future<List<ActivityMessage>> listActivityMessages(String activityId) async {
+    await _requireUserId();
+
+    final data = await supabase
+        .from('community_activity_messages')
+        .select(
+          'id, activity_id, sender_user_id, content, created_at',
+        )
+        .eq('activity_id', activityId)
+        .order('created_at', ascending: true); // explicit ascending
+
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    if (rows.isEmpty) return [];
+
+    final senderIds = rows
+        .map((row) => row['sender_user_id'] as String)
+        .toSet()
+        .toList();
+
+    final profilesData = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .filter('id', 'in', '(${senderIds.join(',')})');
+
+    final profilesRows =
+        (profilesData as List).cast<Map<String, dynamic>>();
+
+    final byId = <String, Map<String, String?>>{};
+    for (final row in profilesRows) {
+      final id = row['id'] as String;
+      byId[id] = {
+        'full_name': row['full_name'] as String?,
+        'username': row['username'] as String?,
+      };
+    }
+
+    return rows.map((row) {
+      final senderId = row['sender_user_id'] as String;
+      final profile = byId[senderId];
+      final senderName = buildDisplayNameMobile(
+        fullName: profile?['full_name'],
+        username: profile?['username'],
+      );
+
+      return ActivityMessage(
+        id: row['id'] as int,
+        activityId: row['activity_id'] as String,
+        senderUserId: senderId,
+        senderName: senderName,
+        content: row['content'] as String,
+        createdAt: DateTime.parse(row['created_at'] as String),
+      );
+    }).toList();
+  }
+
+  Future<ActivityMessage> sendActivityMessage({
+    required String activityId,
+    required String content,
+  }) async {
+    final userId = await _requireUserId();
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Message content cannot be empty');
+    }
+
+    final inserted = await supabase
+        .from('community_activity_messages')
+        .insert({
+          'activity_id': activityId,
+          'sender_user_id': userId,
+          'content': trimmed,
+        })
+        .select(
+          'id, activity_id, sender_user_id, content, created_at',
+        )
+        .single();
+
+    final profileData = await supabase
+        .from('profiles')
+        .select('full_name, username')
+        .eq('id', userId)
+        .maybeSingle();
+
+    final senderName = buildDisplayNameMobile(
+      fullName: profileData?['full_name'] as String?,
+      username: profileData?['username'] as String?,
+    );
+
+    return ActivityMessage(
+      id: inserted['id'] as int,
+      activityId: inserted['activity_id'] as String,
+      senderUserId: inserted['sender_user_id'] as String,
+      senderName: senderName,
+      content: inserted['content'] as String,
+      createdAt: DateTime.parse(inserted['created_at'] as String),
+    );
   }
 }
