@@ -458,7 +458,8 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                                     onDelete: a.isCreator
                                         ? () => _handleDelete(a)
                                         : null,
-                                    onOpenChat: () => _openActivityChat(a),
+                                    onOpenChat: () =>
+                                        _openActivityChat(a),
                                   ),
                                 )
                                 .toList(),
@@ -695,9 +696,41 @@ class _ActivityTile extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${activity.city} • ${activity.scheduledForLabel}',
+            'Hosted by ${activity.creatorName}',
             style: const TextStyle(
               fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: brandText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Text(
+                '📍',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  activity.locationDetails != null &&
+                          activity.locationDetails!.isNotEmpty
+                      ? '${activity.city} • ${activity.locationDetails}'
+                      : activity.city,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: brandText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            activity.scheduledForLabel,
+            style: const TextStyle(
+              fontSize: 11,
               color: brandMuted,
             ),
           ),

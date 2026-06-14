@@ -153,6 +153,19 @@ class CommunityRepository {
         .order('joined_at', ascending: false);
 
     final rows = (data as List).cast<Map<String, dynamic>>();
+    if (rows.isEmpty) return [];
+
+    // collect creator ids
+    final creatorIds = <String>{};
+    for (final row in rows) {
+      final act = row['activity'] as Map<String, dynamic>?;
+      if (act == null) continue;
+      creatorIds.add(act['creator_user_id'] as String);
+    }
+
+    // load creator profiles
+    final profilesById = await _loadProfiles(creatorIds.toList());
+
     final activities = <CommunityActivity>[];
     final ids = <String>[];
 
@@ -165,11 +178,15 @@ class CommunityRepository {
       final role = row['role'] as String;
       final isCreator = role == 'creator';
 
+      final profile = profilesById[creatorId];
+      final hostName = _buildDisplayName(profile) ?? 'Host';
+      final creatorName = isCreator ? 'You' : hostName;
+
       activities.add(
         CommunityActivity(
           id: actId,
           creatorUserId: creatorId,
-          creatorName: isCreator ? 'You' : 'Host',
+          creatorName: creatorName,
           isFriendHost: false,
           title: act['title'] as String,
           description: act['description'] as String?,
@@ -188,7 +205,7 @@ class CommunityRepository {
       ids.add(actId);
     }
 
-    if (ids.isEmpty) return [];
+    if (ids.isEmpty) return activities;
 
     final membersData = await supabase
         .from('community_activity_members')
@@ -355,7 +372,7 @@ class CommunityRepository {
           'id, activity_id, sender_user_id, content, created_at',
         )
         .eq('activity_id', activityId)
-        .order('created_at', ascending: true); // explicit ascending
+        .order('created_at', ascending: true);
 
     final rows = (data as List).cast<Map<String, dynamic>>();
     if (rows.isEmpty) return [];
