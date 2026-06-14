@@ -460,4 +460,168 @@ class CommunityRepository {
       createdAt: DateTime.parse(inserted['created_at'] as String),
     );
   }
+
+  // -------- Invitations (new) --------
+
+  Future<void> inviteFriendToActivity({
+    required String activityId,
+    required String inviteeUserId,
+  }) async {
+    final inviterUserId = await _requireUserId();
+
+    await supabase
+        .from('community_activity_invitations')
+        .upsert(
+          {
+            'activity_id': activityId,
+            'inviter_user_id': inviterUserId,
+            'invitee_user_id': inviteeUserId,
+            'status': 'pending',
+          },
+          onConflict: 'activity_id,invitee_user_id',
+        );
+  }
+
+  Future<Set<String>> listJoinedUserIdsForActivity(String activityId) async {
+    final data = await supabase
+        .from('community_activity_members')
+        .select('user_id')
+        .eq('activity_id', activityId);
+
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    final ids = <String>{};
+    for (final row in rows) {
+      ids.add(row['user_id'] as String);
+    }
+    return ids;
+  }
+
+  Future<Set<String>> listPendingInviteeIdsForActivity(String activityId) async {
+    final data = await supabase
+        .from('community_activity_invitations')
+        .select('invitee_user_id')
+        .eq('activity_id', activityId)
+        .eq('status', 'pending');
+
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    final ids = <String>{};
+    for (final row in rows) {
+      ids.add(row['invitee_user_id'] as String);
+    }
+    return ids;
+  }
+
+  Future<List<ActivityInvitation>> listMyActivityInvitations() async {
+    final userId = await _requireUserId();
+
+    // 1) Load invitations + activity only (no inviter:profiles join)
+    final data = await supabase
+        .from('community_activity_invitations')
+        .select(
+          'id, activity_id, inviter_user_id, status, '
+          'activity:community_activities (id, title, city, start_time_utc)',
+        )
+        .eq('invitee_user_id', userId)
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    if (rows.isEmpty) return [];
+
+    // 2) Collect inviter_user_id values
+    final inviterIds = <String>{};
+    for (final row in rows) {
+      final inviterId = row['inviter_user_id'] as String?;
+      if (inviterId != null) {
+        inviterIds.add(inviterId);
+      }
+    }
+
+    // 3) Load inviter profiles in a separate query
+    final inviterProfiles = inviterIds.isEmpty
+        ? <String, Map<String, dynamic>>{}
+        : await _loadProfiles(inviterIds.toList());
+
+    // 4) Build invitations with inviterName from profiles
+    final invitations = <ActivityInvitation>[];
+
+    for (final row in rows) {
+      final activity = row['activity'] as Map<String, dynamic>?;
+      if (activity == null) continue;
+
+      final inviterId = row['inviter_user_id'] as String?;
+      final inviterProfile = inviterId != null
+          ? inviterProfiles[inviterId]
+          : null;
+
+      final inviterName =
+          _buildDisplayName(inviterProfile) ?? 'Host';
+
+      final startUtc =
+          DateTime.parse(activity['start_time_utc'] as String);
+      final label = startUtc.toLocal().toString();
+
+      invitations.add(
+        ActivityInvitation(
+          id: row['id'] as int,
+          activityId: activity['id'] as String,
+          activityTitle: activity['title'] as String,
+          city: activity['city'] as String,
+          startTimeUtc: startUtc,
+          scheduledForLabel: label,
+          inviterName: inviterName,
+        ),
+      );
+    }
+
+    return invitations;
+  }
+
+  Future<void> respondToActivityInvitation({
+    required int invitationId,
+    required String decision, // 'accept' or 'decline'
+  }) async {
+    assert(decision == 'accept' || decision == 'decline');
+
+    final userId = await _requireUserId();
+
+    final invitationData = await supabase
+        .from('community_activity_invitations')
+        .select('id, activity_id, invitee_user_id, status')
+        .eq('id', invitationId)
+        .maybeSingle();
+
+    if (invitationData == null) {
+      throw Exception('Invitation not found');
+    }
+    if (invitationData['invitee_user_id'] != userId) {
+      throw Exception('Not authorized to respond to this invitation');
+    }
+    if (invitationData['status'] != 'pending') {
+      return;
+    }
+
+    final activityId = invitationData['activity_id'] as String;
+
+    await supabase
+        .from('community_activity_invitations')
+        .update({
+          'status': decision == 'accept' ? 'accepted' : 'declined',
+          'responded_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', invitationId);
+
+    if (decision == 'accept') {
+      final membership = await supabase
+          .from('community_activity_members')
+          .select('activity_id, user_id')
+          .eq('activity_id', activityId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (membership == null) {
+        await joinActivity(activityId);
+      }
+    }
+  }
 }

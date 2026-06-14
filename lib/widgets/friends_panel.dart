@@ -2,13 +2,17 @@
 import 'package:flutter/material.dart';
 
 import '../friends_repository.dart';
+import '../community_repository.dart';
+import '../models/community_models.dart';
 
 class FriendsPanelSheet extends StatefulWidget {
   final FriendsRepository friendsRepo;
+  final CommunityRepository communityRepo;
 
   const FriendsPanelSheet({
     super.key,
     required this.friendsRepo,
+    required this.communityRepo,
   });
 
   @override
@@ -27,10 +31,16 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
 
   bool _friendsListOpen = true;
 
+  // Activity invitations
+  List<ActivityInvitation> _activityInvitations = [];
+  bool _invitesLoading = false;
+  String? _invitesError;
+
   @override
   void initState() {
     super.initState();
     _loadFriendsOverview();
+    _loadActivityInvitations();
   }
 
   Future<void> _loadFriendsOverview() async {
@@ -56,6 +66,63 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
           _friendsLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadActivityInvitations() async {
+    setState(() {
+      _invitesLoading = true;
+      _invitesError = null;
+    });
+
+    try {
+      final invites =
+          await widget.communityRepo.listMyActivityInvitations();
+      if (!mounted) return;
+      setState(() {
+        _activityInvitations = invites;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _invitesError = 'Failed to load activity invitations: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _invitesLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleInvitationDecision(
+    ActivityInvitation invitation,
+    String decision, // 'accept' or 'decline'
+  ) async {
+    try {
+      await widget.communityRepo.respondToActivityInvitation(
+        invitationId: invitation.id,
+        decision: decision,
+      );
+      await _loadActivityInvitations();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            decision == 'accept'
+                ? 'Activity invitation accepted'
+                : 'Activity invitation declined',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to respond to invitation: $e'),
+        ),
+      );
     }
   }
 
@@ -253,8 +320,8 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
                               width: double.infinity,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 6),
                                   backgroundColor: brandDeep,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -286,9 +353,8 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
                             if (_searchResults.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               Container(
-                                constraints: const BoxConstraints(
-                                  maxHeight: 150,
-                                ),
+                                constraints:
+                                    const BoxConstraints(maxHeight: 150),
                                 decoration: const BoxDecoration(
                                   border: Border(
                                     bottom: BorderSide(color: brandBorder),
@@ -359,8 +425,7 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
                                                       _handleAcceptFriend(
                                                     u.id,
                                                   ),
-                                                  style:
-                                                      TextButton.styleFrom(
+                                                  style: TextButton.styleFrom(
                                                     backgroundColor:
                                                         Colors.green,
                                                     padding: const EdgeInsets
@@ -384,8 +449,7 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
                                                       _handleDeclineFriend(
                                                     u.id,
                                                   ),
-                                                  style:
-                                                      TextButton.styleFrom(
+                                                  style: TextButton.styleFrom(
                                                     backgroundColor:
                                                         Colors.red,
                                                     padding: const EdgeInsets
@@ -457,6 +521,8 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
                                 overview: _overview,
                                 brandMuted: brandMuted,
                               ),
+                            const SizedBox(height: 12),
+                            _buildActivityInvitationsSection(brandMuted),
                           ],
                         ),
                       ),
@@ -629,6 +695,143 @@ class _FriendsPanelSheetState extends State<FriendsPanelSheet> {
                 );
               },
             ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildActivityInvitationsSection(Color brandMuted) {
+    const brandText = Color(0xFF1F3B3A);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Activity invitations',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: brandMuted,
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (_invitesError != null)
+          Text(
+            _invitesError!,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.red,
+            ),
+          )
+        else if (_invitesLoading)
+          Text(
+            'Loading invitations…',
+            style: TextStyle(
+              fontSize: 12,
+              color: brandMuted,
+            ),
+          )
+        else if (_activityInvitations.isEmpty)
+          Text(
+            'No invitations at the moment.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade500,
+            ),
+          )
+        else
+          Column(
+            children: _activityInvitations.map((inv) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: const Color(0xFFD8E9E6)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        inv.activityTitle,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: brandText,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${inv.city} • ${inv.scheduledForLabel}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: brandMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Invited by ${inv.inviterName}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: brandMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () =>
+                                _handleInvitationDecision(inv, 'decline'),
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            child: const Text(
+                              'Decline',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () =>
+                                _handleInvitationDecision(inv, 'accept'),
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            child: const Text(
+                              'Accept',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
       ],
     );

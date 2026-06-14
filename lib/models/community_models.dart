@@ -59,6 +59,27 @@ class ActivityMessage {
   });
 }
 
+/// Invitation to join a community activity
+class ActivityInvitation {
+  final int id;
+  final String activityId;
+  final String activityTitle;
+  final String city;
+  final DateTime startTimeUtc;
+  final String scheduledForLabel;
+  final String inviterName;
+
+  ActivityInvitation({
+    required this.id,
+    required this.activityId,
+    required this.activityTitle,
+    required this.city,
+    required this.startTimeUtc,
+    required this.scheduledForLabel,
+    required this.inviterName,
+  });
+}
+
 /// Utility to build display name like on web:
 /// full name + (@username), or just one of them.
 String buildDisplayNameMobile({

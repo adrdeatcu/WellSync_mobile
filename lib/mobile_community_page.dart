@@ -8,6 +8,7 @@ import 'widgets/create_activity_sheet.dart';
 import 'friends_repository.dart';
 import 'widgets/friends_panel.dart';
 import 'activity_chat_page.dart';
+import 'widgets/activity_invite_sheet.dart'; // NEW
 
 class MobileCommunityPage extends StatefulWidget {
   const MobileCommunityPage({super.key});
@@ -324,7 +325,10 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
       ),
       builder: (context) => FractionallySizedBox(
         heightFactor: 0.85,
-        child: FriendsPanelSheet(friendsRepo: _friendsRepo),
+        child: FriendsPanelSheet(
+          friendsRepo: _friendsRepo,
+          communityRepo: _repo, // FIX: pass communityRepo as required
+        ),
       ),
     );
   }
@@ -335,6 +339,24 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
         builder: (_) => ActivityChatPage(
           activity: activity,
           repo: _repo,
+        ),
+      ),
+    );
+  }
+
+  void _openInviteSheet(CommunityActivity activity) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: ActivityInviteSheet(
+          activity: activity,
+          friendsRepo: _friendsRepo,
+          communityRepo: _repo,
         ),
       ),
     );
@@ -460,6 +482,7 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                                         : null,
                                     onOpenChat: () =>
                                         _openActivityChat(a),
+                                    onInvite: () => _openInviteSheet(a),
                                   ),
                                 )
                                 .toList(),
@@ -534,6 +557,7 @@ class _MobileCommunityPageState extends State<MobileCommunityPage> {
                                     onLeave: null,
                                     onDelete: null,
                                     onOpenChat: null,
+                                    onInvite: null,
                                   ),
                                 )
                                 .toList(),
@@ -628,6 +652,7 @@ class _ActivityTile extends StatelessWidget {
   final VoidCallback? onLeave;
   final VoidCallback? onDelete;
   final VoidCallback? onOpenChat;
+  final VoidCallback? onInvite; // NEW
 
   const _ActivityTile({
     required this.activity,
@@ -636,6 +661,7 @@ class _ActivityTile extends StatelessWidget {
     this.onLeave,
     this.onDelete,
     this.onOpenChat,
+    this.onInvite, // NEW
   });
 
   @override
@@ -750,6 +776,11 @@ class _ActivityTile extends StatelessWidget {
                 TextButton(
                   onPressed: onOpenChat,
                   child: const Text('Open chat'),
+                ),
+              if (isMineSection && onInvite != null)
+                TextButton(
+                  onPressed: onInvite,
+                  child: const Text('Invite'),
                 ),
               if (isMineSection && onLeave != null)
                 TextButton(
