@@ -18,7 +18,12 @@ class CoachMessage {
 }
 
 class MobileCoachPage extends StatefulWidget {
-  const MobileCoachPage({super.key});
+  final String? initialQuestion; // NEW
+
+  const MobileCoachPage({
+    super.key,
+    this.initialQuestion,
+  });
 
   @override
   State<MobileCoachPage> createState() => _MobileCoachPageState();
@@ -33,6 +38,7 @@ class _MobileCoachPageState extends State<MobileCoachPage> {
   final List<CoachMessage> _messages = [];
   bool _loading = false;
   String? _error;
+  bool _initialQuestionHandled = false; // NEW
 
   @override
   void initState() {
@@ -57,6 +63,62 @@ class _MobileCoachPageState extends State<MobileCoachPage> {
         setState(() {});
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Auto-send the initial question once
+    if (!_initialQuestionHandled && widget.initialQuestion != null) {
+      _initialQuestionHandled = true;
+      _sendInitialQuestion(widget.initialQuestion!);
+    }
+  }
+
+  Future<void> _sendInitialQuestion(String question) async {
+    // Show it as if user typed it
+    setState(() {
+      _error = null;
+      _loading = true;
+      _messages.add(
+        CoachMessage(
+          id: 'user-${DateTime.now().millisecondsSinceEpoch}',
+          from: 'user',
+          text: question,
+        ),
+      );
+    });
+    _scrollToBottomDelayed();
+
+    try {
+      final advice = await _coachService.askCoach(question: question);
+
+      final coachText = advice.actionSteps.isNotEmpty
+          ? '${advice.summary}\n\n${advice.actionSteps.map((s) => '• $s').join('\n')}'
+          : advice.summary;
+
+      setState(() {
+        _messages.add(
+          CoachMessage(
+            id: 'coach-${DateTime.now().millisecondsSinceEpoch}',
+            from: 'coach',
+            text: coachText,
+          ),
+        );
+      });
+      _scrollToBottomDelayed();
+    } catch (e) {
+      setState(() {
+        _error =
+            'The coach could not answer right now. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
   }
 
   @override

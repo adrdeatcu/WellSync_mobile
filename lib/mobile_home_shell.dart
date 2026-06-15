@@ -6,6 +6,7 @@ import 'mobile_profile_page.dart';
 import 'mobile_history_page.dart';
 import 'mobile_coach_page.dart';
 import 'mobile_community_page.dart';
+import 'widgets/mobile_coach_fab.dart'; // NEW
 
 class MobileHomeShell extends StatefulWidget {
   const MobileHomeShell({super.key});
@@ -17,21 +18,50 @@ class MobileHomeShell extends StatefulWidget {
 class _MobileHomeShellState extends State<MobileHomeShell> {
   int _currentIndex = 0;
 
-  // Dashboard and Profile are real pages.
-  // History is now the real MobileHistoryPage.
-  // AI Coach / Community are placeholders for now.
-  final _pages = const [
-    MobileDashboardPage(),       // 0 - Dashboard / Home
-    MobileHistoryPage(),         // 1 - History
-    MobileCoachPage(),   // 2 - AI Coach
-    MobileCommunityPage(), // 3 - Community
-    MobileProfilePage(),         // 4 - Profile
-  ];
+  // Keep pages in fields so we can replace the coach page with a new initialQuestion
+  late MobileDashboardPage _dashboardPage;
+  late MobileHistoryPage _historyPage;
+  late MobileCoachPage _coachPage;
+  late MobileCommunityPage _communityPage;
+  late MobileProfilePage _profilePage;
+
+  @override
+  void initState() {
+    super.initState();
+    _dashboardPage = const MobileDashboardPage();
+    _historyPage = const MobileHistoryPage();
+    _coachPage = const MobileCoachPage();
+    _communityPage = const MobileCommunityPage();
+    _profilePage = const MobileProfilePage();
+  }
+
+  void _openCoach(String? initialQuestion) {
+    setState(() {
+      _coachPage = MobileCoachPage(initialQuestion: initialQuestion);
+      _currentIndex = 2; // AI Coach tab
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      _dashboardPage,
+      _historyPage,
+      _coachPage,
+      _communityPage,
+      _profilePage,
+    ];
+
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: Stack(
+        children: [
+          pages[_currentIndex],
+          if (_currentIndex == 0)
+            MobileCoachFab(
+              onOpenCoach: _openCoach,
+            ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
@@ -71,5 +101,3 @@ class _MobileHomeShellState extends State<MobileHomeShell> {
     );
   }
 }
-
-// Placeholder pages – later replaced with real implementations
