@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'mobile_emergency_alert_page.dart'; // NEW
+
 class MobileProfilePage extends StatefulWidget {
   const MobileProfilePage({super.key});
 
@@ -456,6 +458,49 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // NEW: Test fall alert demo button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MobileEmergencyAlertPage(
+                                emergencyContactName: 'Demo Contact',
+                                emergencyContactPhone: '+40123456789',
+                                address:
+                                    'Strada Exemplu nr. 10, București, Romania',
+                              ),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: brandBorder),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.health_and_safety_outlined,
+                          size: 18,
+                          color: Color(0xFFB45309),
+                        ),
+                        label: const Text(
+                          'Test fall alert demo',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFB45309),
                           ),
                         ),
                       ),

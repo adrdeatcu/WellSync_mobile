@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart'; // NEW
 
 import 'ble_measurement_service.dart';
 import 'login_page.dart';
@@ -52,11 +53,15 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
     _loadStepGoalPerDay();
     _loadTodayStats();
 
+    // Ask for location permission once when dashboard loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureLocationPermission();
+    });
+
     // 1) Subscribe to raw samples (not used in UI, but kept if needed later)
     _sampleSub = _bleService.samplesStream.listen((sample) {
       // no setState: we don't display live sample anymore
       if (kDebugMode) {
-        // You can log if you want
         // print('Received live sample: ${sample.toJson()}');
       }
     });
@@ -77,6 +82,46 @@ class _MobileDashboardPageState extends State<MobileDashboardPage> {
         }
       }
     });
+  }
+
+  // NEW: ask for location permission at dashboard startup
+  Future<void> _ensureLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever ||
+        permission == LocationPermission.denied) {
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: const Text('Location needed'),
+            content: const Text(
+              'To show your approximate location during a fall alert, '
+              'please enable location permission for WellSync in settings.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Later'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(ctx).pop();
+                  await Geolocator.openAppSettings();
+                },
+                child: const Text('Open settings'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   Future<void> _loadStepGoalPerDay() async {

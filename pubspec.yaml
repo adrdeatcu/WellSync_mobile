@@ -50,6 +50,14 @@ dependencies:
   #Charts
   fl_chart: ^0.68.0   # or latest
 
+  url_launcher: ^6.3.0
+
+  audioplayers: ^6.0.0
+
+  geolocator: ^13.0.1
+  
+  geocoding: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -80,6 +88,7 @@ flutter:
   assets:
     - assets/images/wellsync-logo.png
     - assets/images/wellsync_coach.png
+    - assets/sounds/alert_tone.mp3
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
