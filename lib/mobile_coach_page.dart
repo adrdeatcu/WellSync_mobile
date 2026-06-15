@@ -309,10 +309,11 @@ class _MobileCoachPageState extends State<MobileCoachPage> {
                                 color: const Color(0xFFE4F3F0),
                                 borderRadius: BorderRadius.circular(50),
                               ),
-                              child: const Icon(
-                                Icons.smart_toy,
-                                size: 18,
-                                color: Color(0xFF1F5F63),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/wellsync_coach.png',
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                             Flexible(
