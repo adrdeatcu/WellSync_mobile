@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'mobile_emergency_alert_page.dart'; // NEW
+import 'mobile_emergency_alert_page.dart';
 
 class MobileProfilePage extends StatefulWidget {
   const MobileProfilePage({super.key});
@@ -27,6 +27,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   final _stepGoalController = TextEditingController();
+
+  // NEW: emergency contact
+  final _emergencyNameController = TextEditingController();
+  final _emergencyPhoneController = TextEditingController();
 
   String? _activityLevel; // sedentary, lightly_active, etc.
 
@@ -56,7 +60,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       final res = await _supabase
           .from('profiles')
           .select(
-            'username, full_name, age, height_cm, weight_kg, activity_level, step_goal_per_day, high_hr_threshold, low_spo2_threshold, poor_air_quality_threshold',
+            'username, full_name, age, height_cm, weight_kg, activity_level, '
+            'step_goal_per_day, high_hr_threshold, low_spo2_threshold, '
+            'poor_air_quality_threshold, emergency_contact_name, emergency_contact_phone',
           )
           .eq('id', user.id)
           .maybeSingle();
@@ -70,6 +76,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         _weightController.text = '';
         _activityLevel = null;
         _stepGoalController.text = '10000';
+        _emergencyNameController.text = '';
+        _emergencyPhoneController.text = '';
       } else {
         _usernameController.text = (res['username'] as String?) ?? '';
         _fullNameController.text = (res['full_name'] as String?) ?? '';
@@ -81,6 +89,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         _activityLevel = (res['activity_level'] as String?);
         _stepGoalController.text =
             (res['step_goal_per_day'] as int?)?.toString() ?? '10000';
+        _emergencyNameController.text =
+            (res['emergency_contact_name'] as String?) ?? '';
+        _emergencyPhoneController.text =
+            (res['emergency_contact_phone'] as String?) ?? '';
       }
     } catch (e) {
       if (kDebugMode) {
@@ -131,6 +143,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       final weightKg = parseDoubleOrNull(_weightController.text);
       final stepGoal = parseIntOrNull(_stepGoalController.text) ?? 10000;
 
+      final emergencyName = _emergencyNameController.text.trim();
+      final emergencyPhone = _emergencyPhoneController.text.trim();
+
       final update = <String, dynamic>{
         'username': _usernameController.text.trim().isEmpty
             ? null
@@ -143,6 +158,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         'weight_kg': weightKg,
         'activity_level': _activityLevel,
         'step_goal_per_day': stepGoal,
+        // NEW: emergency contact fields (nullable)
+        'emergency_contact_name':
+            emergencyName.isEmpty ? null : emergencyName,
+        'emergency_contact_phone':
+            emergencyPhone.isEmpty ? null : emergencyPhone,
       };
 
       final res = await _supabase
@@ -150,7 +170,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
           .update(update)
           .eq('id', user.id)
           .select(
-            'username, full_name, age, height_cm, weight_kg, activity_level, step_goal_per_day, high_hr_threshold, low_spo2_threshold, poor_air_quality_threshold',
+            'username, full_name, age, height_cm, weight_kg, activity_level, '
+            'step_goal_per_day, high_hr_threshold, low_spo2_threshold, '
+            'poor_air_quality_threshold, emergency_contact_name, emergency_contact_phone',
           )
           .maybeSingle();
 
@@ -187,6 +209,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     _heightController.dispose();
     _weightController.dispose();
     _stepGoalController.dispose();
+    _emergencyNameController.dispose();
+    _emergencyPhoneController.dispose();
     super.dispose();
   }
 
@@ -271,6 +295,16 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         child: CircularProgressIndicator(),
       );
     }
+
+    // Values to use in demo button, with fallback if empty
+    final demoEmergencyName =
+        _emergencyNameController.text.trim().isEmpty
+            ? 'Demo Contact'
+            : _emergencyNameController.text.trim();
+    final demoEmergencyPhone =
+        _emergencyPhoneController.text.trim().isEmpty
+            ? '+40123456789'
+            : _emergencyPhoneController.text.trim();
 
     return Scaffold(
       appBar: AppBar(
@@ -437,6 +471,27 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                         hint: 'e.g. 10000',
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // NEW: Emergency contact name
+                    TextField(
+                      controller: _emergencyNameController,
+                      decoration: fieldDecoration(
+                        'Emergency contact name',
+                        hint: 'e.g. Mom',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // NEW: Emergency contact phone
+                    TextField(
+                      controller: _emergencyPhoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: fieldDecoration(
+                        'Emergency contact phone',
+                        hint: 'e.g. +40...',
+                      ),
+                    ),
                     const SizedBox(height: 24),
 
                     Align(
@@ -464,16 +519,17 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     ),
                     const SizedBox(height: 24),
 
-                    // NEW: Test fall alert demo button
+                    // Test fall alert demo button using saved emergency contact
                     Align(
                       alignment: Alignment.centerLeft,
                       child: OutlinedButton.icon(
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => const MobileEmergencyAlertPage(
-                                emergencyContactName: 'Demo Contact',
-                                emergencyContactPhone: '+40123456789',
+                              builder: (_) => MobileEmergencyAlertPage(
+                                emergencyContactName: demoEmergencyName,
+                                emergencyContactPhone: demoEmergencyPhone,
+                                // Initial fallback address; real one resolved in the page
                                 address:
                                     'Strada Exemplu nr. 10, București, Romania',
                               ),
